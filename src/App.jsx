@@ -25,7 +25,7 @@ export default function App() {
                 <Shield className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900 leading-none">Aegis Health</h1>
+                <h1 className="text-xl font-bold text-slate-900 leading-none">Charak Health</h1>
                 <span className="text-xs text-slate-500 font-medium">Local Self-Exam & History</span>
               </div>
             </div>
