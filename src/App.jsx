@@ -26,7 +26,7 @@ export default function App() {
                 <Shield className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900 leading-none">Charak Health</h1>
+                <h1 className="text-xl font-bold text-slate-900 leading-none">Charak</h1>
                 <span className="text-xs text-slate-500 font-medium">Local Self-Exam & History</span>
               </div>
             </div>
@@ -143,19 +143,21 @@ export default function App() {
           </div>
         )}
 
-        {/* Temporary Placeholders for Next Steps */}
+        {/* Render Self-Exam Organ Guides */}
         {activeTab === 'guides' && <OrganGuides />}
-{activeTab !== 'landing' && activeTab !== 'guides' && (
-  <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm">
-    <div className="inline-flex p-4 rounded-full bg-sky-50 text-sky-600">
-      <Shield className="w-8 h-8" />
-    </div>
-    <h3 className="text-2xl font-bold text-slate-900 capitalize">{activeTab} Module Ready For Next Step</h3>
-    <p className="text-slate-600 max-w-md mx-auto">
-      Phase 2 active! Paste Phase 3 (Dexie local symptom tracker) next to enable local database storage.
-    </p>
-  </div>
-)}
+
+        {/* Modules Coming Next */}
+        {activeTab !== 'landing' && activeTab !== 'guides' && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm">
+            <div className="inline-flex p-4 rounded-full bg-sky-50 text-sky-600">
+              <Shield className="w-8 h-8" />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 capitalize">{activeTab} Module Ready For Next Step</h3>
+            <p className="text-slate-600 max-w-md mx-auto">
+              Phase 2 active! Paste Phase 3 (Dexie local symptom tracker) next to enable local database storage.
+            </p>
+          </div>
+        )}
       </main>
 
       {/* Mobile Bottom Navigation */}
