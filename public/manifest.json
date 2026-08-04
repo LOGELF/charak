@@ -1,0 +1,10 @@
+{
+  "short_name": "Charak",
+  "name": "Charak self health-checkup guide",
+  "icons": [],
+  "start_url": ".",
+  "background_color": "#f8fafc",
+  "theme_color": "#0284c7",
+  "display": "standalone",
+  "orientation": "portrait"
+}
