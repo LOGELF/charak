@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, BookOpen, Activity, GitFork, FileText, Lock, EyeOff, HardDrive } from 'lucide-react';
+import OrganGuides from './components/OrganGuides.jsx';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('landing');
