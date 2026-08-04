@@ -144,17 +144,18 @@ export default function App() {
         )}
 
         {/* Temporary Placeholders for Next Steps */}
-        {activeTab !== 'landing' && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm">
-            <div className="inline-flex p-4 rounded-full bg-sky-50 text-sky-600">
-              <Shield className="w-8 h-8" />
-            </div>
-            <h3 className="text-2xl font-bold text-slate-900 capitalize">{activeTab} Module Ready For Next Step</h3>
-            <p className="text-slate-600 max-w-md mx-auto">
-              Phase 1 setup complete! Paste Phase 2 files next to activate full self-exam guides and tracking functionality.
-            </p>
-          </div>
-        )}
+        {activeTab === 'guides' && <OrganGuides />}
+{activeTab !== 'landing' && activeTab !== 'guides' && (
+  <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm">
+    <div className="inline-flex p-4 rounded-full bg-sky-50 text-sky-600">
+      <Shield className="w-8 h-8" />
+    </div>
+    <h3 className="text-2xl font-bold text-slate-900 capitalize">{activeTab} Module Ready For Next Step</h3>
+    <p className="text-slate-600 max-w-md mx-auto">
+      Phase 2 active! Paste Phase 3 (Dexie local symptom tracker) next to enable local database storage.
+    </p>
+  </div>
+)}
       </main>
 
       {/* Mobile Bottom Navigation */}
