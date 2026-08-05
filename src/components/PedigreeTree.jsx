@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../db/db.js';
-import { GitFork, UserPlus, Trash2, ShieldCheck, Plus, ZoomIn, ZoomOut, RotateCcw, Link, Edit3, Check } from 'lucide-react';
+import { GitFork, UserPlus, Trash2, ShieldCheck, Plus, ZoomIn, ZoomOut, RotateCcw, Link, Edit3, Check, Wand2 } from 'lucide-react';
 
 export default function PedigreeTree() {
   const [members, setMembers] = useState([]);
@@ -36,6 +36,32 @@ export default function PedigreeTree() {
   useEffect(() => {
     loadFamily();
   }, []);
+
+  // Quick Template Generator matching the exact notebook diagram
+  const generateStandardTemplate = async () => {
+    if (members.length > 0) {
+      if (!window.confirm("This will clear existing family entries and load the standard 3-Generation tree structure. Proceed?")) {
+        return;
+      }
+    }
+
+    await db.familyMembers.clear();
+
+    // Gen I
+    const mGf = await db.familyMembers.add({ alias: 'Maternal GF', relation: 'Maternal Grandfather', gender: 'Male', status: 'Living', generationTier: 0, diagnoses: [] });
+    const mGm = await db.familyMembers.add({ alias: 'Maternal GM', relation: 'Maternal Grandmother', gender: 'Female', status: 'Living', generationTier: 0, diagnoses: [] });
+    const pGf = await db.familyMembers.add({ alias: 'Paternal GF', relation: 'Paternal Grandfather', gender: 'Male', status: 'Living', generationTier: 0, diagnoses: [] });
+    const pGm = await db.familyMembers.add({ alias: 'Paternal GM', relation: 'Paternal Grandmother', gender: 'Female', status: 'Living', generationTier: 0, diagnoses: [] });
+
+    // Gen II
+    const mother = await db.familyMembers.add({ alias: 'Mother', relation: 'Mother', gender: 'Female', status: 'Living', generationTier: 1, fatherId: mGf, motherId: mGm, diagnoses: [] });
+    const father = await db.familyMembers.add({ alias: 'Father', relation: 'Father', gender: 'Male', status: 'Living', generationTier: 1, fatherId: pGf, motherId: pGm, diagnoses: [] });
+
+    // Gen III
+    await db.familyMembers.add({ alias: 'Self', relation: 'Self', gender: 'Male', status: 'Living', generationTier: 2, fatherId: father, motherId: mother, diagnoses: [] });
+
+    await loadFamily();
+  };
 
   // Add individual condition to local list
   const handleAddCondition = () => {
@@ -109,28 +135,33 @@ export default function PedigreeTree() {
     }
   };
 
-  // --- PEDIGREE CALCULATIONS & POSITIONS ---
+  // --- POSITIONS ALIGNED WITH NOTEBOOK DIAGRAM ---
   const nodeMap = {};
-  const generations = [[], [], [], []]; // Gen 0, 1, 2, 3
 
+  // Custom positioning rules for canonical 3-Gen Notebook Layout
   members.forEach(m => {
-    const tier = m.generationTier ?? 2;
-    generations[tier].push(m);
+    let x = 120;
+    let y = 60;
+
+    if (m.relation === 'Maternal Grandfather') { x = 80; y = 60; }
+    else if (m.relation === 'Maternal Grandmother') { x = 240; y = 60; }
+    else if (m.relation === 'Paternal Grandfather') { x = 520; y = 60; }
+    else if (m.relation === 'Paternal Grandmother') { x = 680; y = 60; }
+    else if (m.relation === 'Mother') { x = 160; y = 240; }
+    else if (m.relation === 'Father') { x = 600; y = 240; }
+    else if (m.relation === 'Self') { x = 380; y = 420; }
+    else {
+      // Fallback grid positioning for custom members
+      const tier = m.generationTier ?? 2;
+      const count = Object.values(nodeMap).filter(node => node.generationTier === tier).length;
+      x = 100 + count * 160;
+      y = 60 + tier * 180;
+    }
+
+    nodeMap[m.id] = { ...m, x, y };
   });
 
-  // Calculate (x, y) coordinates for each node
-  const ySpacing = 220;
-  const xSpacing = 180;
-
-  generations.forEach((genMembers, gIdx) => {
-    const y = 80 + gIdx * ySpacing;
-    genMembers.forEach((m, mIdx) => {
-      const x = 120 + mIdx * xSpacing;
-      nodeMap[m.id] = { ...m, x, y };
-    });
-  });
-
-  // Find Parent Couples & Child Connections
+  // Calculate Parent-Couples & Line Connections
   const connections = [];
   members.forEach(child => {
     if (child.fatherId || child.motherId) {
@@ -158,15 +189,23 @@ export default function PedigreeTree() {
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="inline-flex items-center space-x-1 text-xs font-semibold bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full mb-1">
-            <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Dynamic Pedigree Engine
+            <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Standard 3-Gen Clinical Layout
           </span>
-          <h2 className="text-2xl font-extrabold text-slate-900">Connected Family Pedigree Map</h2>
-          <p className="text-slate-600 text-sm mt-0.5">Real connection lines, custom parent links, zoom controls, and red triangle disease symbols.</p>
+          <h2 className="text-2xl font-extrabold text-slate-900">Clinical Family Pedigree Map</h2>
+          <p className="text-slate-600 text-sm mt-0.5">Exact layout matching standard clinical notebook genetics diagrams.</p>
         </div>
+
+        <button
+          onClick={generateStandardTemplate}
+          className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all shrink-0"
+        >
+          <Wand2 className="w-4 h-4" />
+          <span>Auto-Build Notebook Template</span>
+        </button>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* Left Column: Form & Relationship Links Editor */}
+        {/* Left Column: Form & Links Editor */}
         <div className="lg:col-span-1 space-y-6">
           {/* Add Relative Form */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -245,7 +284,6 @@ export default function PedigreeTree() {
                 </div>
               </div>
 
-              {/* Optional Parent Selectors upon creation */}
               {members.length > 0 && (
                 <div className="border-t border-slate-200 pt-3 space-y-2">
                   <label className="block text-xs font-bold text-slate-700">Connect Parents (Optional)</label>
@@ -271,7 +309,7 @@ export default function PedigreeTree() {
                 </div>
               )}
 
-              {/* Multiple Diagnoses Adder */}
+              {/* Diagnoses List */}
               <div className="border-t border-slate-200 pt-3 space-y-2">
                 <label className="block text-xs font-bold text-slate-700">Diagnoses & Diseases</label>
                 <div className="flex gap-2">
@@ -403,7 +441,7 @@ export default function PedigreeTree() {
           )}
         </div>
 
-        {/* Right Canvas: Connected Pedigree Chart & Zoom Controls */}
+        {/* Right Canvas: Notebook Pedigree Chart & Zoom Controls */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             {/* Controls Bar: Zoom & Legend */}
@@ -443,12 +481,18 @@ export default function PedigreeTree() {
             </div>
 
             {/* Canvas Area */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-auto min-h-[420px] relative">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-auto min-h-[500px] relative">
               {members.length === 0 ? (
-                <div className="text-center text-slate-400 py-16 space-y-2">
-                  <GitFork className="w-8 h-8 mx-auto text-slate-300" />
-                  <p className="text-sm font-medium">No family members added yet.</p>
-                  <p className="text-xs">Add yourself and family members to render connected lines.</p>
+                <div className="text-center text-slate-400 py-20 space-y-3">
+                  <GitFork className="w-10 h-10 mx-auto text-slate-300" />
+                  <p className="text-sm font-semibold text-slate-600">No family members in pedigree tree.</p>
+                  <button
+                    onClick={generateStandardTemplate}
+                    className="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition-all"
+                  >
+                    <Wand2 className="w-4 h-4" />
+                    <span>Click Here to Auto-Build 3-Gen Tree</span>
+                  </button>
                 </div>
               ) : (
                 <div
@@ -456,12 +500,12 @@ export default function PedigreeTree() {
                     transform: `scale(${zoomLevel})`,
                     transformOrigin: 'top left',
                     transition: 'transform 0.2s ease-out',
-                    width: '900px',
-                    height: '650px'
+                    width: '880px',
+                    height: '580px'
                   }}
                   className="relative"
                 >
-                  {/* SVG Layer for Real Connection Lines */}
+                  {/* SVG Layer for Real Connection Lines matching notebook */}
                   <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
                     {connections.map((conn, idx) => {
                       const { childPos, fatherPos, motherPos } = conn;
@@ -475,30 +519,30 @@ export default function PedigreeTree() {
                         const motherY = motherPos.y + 25;
                         const midX = (fatherX + motherX) / 2;
                         const midY = fatherY;
-                        const dropY = childY - 30;
+                        const dropY = childY - 35;
 
                         return (
                           <g key={idx}>
-                            {/* Union line between Father and Mother */}
-                            <line x1={fatherX} y1={fatherY} x2={motherX} y2={motherY} className="stroke-slate-700 stroke-[2]" />
-                            {/* Line dropping down from parents midpoint */}
-                            <line x1={midX} y1={midY} x2={midX} y2={dropY} className="stroke-slate-700 stroke-[2]" />
-                            {/* Line connecting down to child */}
-                            <line x1={midX} y1={dropY} x2={childX} y2={dropY} className="stroke-slate-700 stroke-[2]" />
-                            <line x1={childX} y1={dropY} x2={childX} y2={childY} className="stroke-slate-700 stroke-[2]" />
+                            {/* Horizontal Marriage Line between Father and Mother */}
+                            <line x1={fatherX} y1={fatherY} x2={motherX} y2={motherY} className="stroke-slate-800 stroke-[2.5]" />
+                            {/* Vertical Line dropping down from parents midpoint */}
+                            <line x1={midX} y1={midY} x2={midX} y2={dropY} className="stroke-slate-800 stroke-[2.5]" />
+                            {/* Connection down to Child */}
+                            <line x1={midX} y1={dropY} x2={childX} y2={dropY} className="stroke-slate-800 stroke-[2.5]" />
+                            <line x1={childX} y1={dropY} x2={childX} y2={childY} className="stroke-slate-800 stroke-[2.5]" />
                           </g>
                         );
                       } else if (fatherPos || motherPos) {
                         const p = fatherPos || motherPos;
                         const parentX = p.x + 25;
                         const parentY = p.y + 50;
-                        const dropY = childY - 30;
+                        const dropY = childY - 35;
 
                         return (
                           <g key={idx}>
-                            <line x1={parentX} y1={parentY} x2={parentX} y2={dropY} className="stroke-slate-700 stroke-[2]" />
-                            <line x1={parentX} y1={dropY} x2={childX} y2={dropY} className="stroke-slate-700 stroke-[2]" />
-                            <line x1={childX} y1={dropY} x2={childX} y2={childY} className="stroke-slate-700 stroke-[2]" />
+                            <line x1={parentX} y1={parentY} x2={parentX} y2={dropY} className="stroke-slate-800 stroke-[2.5]" />
+                            <line x1={parentX} y1={dropY} x2={childX} y2={dropY} className="stroke-slate-800 stroke-[2.5]" />
+                            <line x1={childX} y1={dropY} x2={childX} y2={childY} className="stroke-slate-800 stroke-[2.5]" />
                           </g>
                         );
                       }
@@ -506,7 +550,7 @@ export default function PedigreeTree() {
                     })}
                   </svg>
 
-                  {/* Render Relative Nodes */}
+                  {/* Render Nodes */}
                   {Object.values(nodeMap).map((m) => {
                     const hasDiagnoses = m.diagnoses && m.diagnoses.length > 0;
                     const isMale = m.gender === 'Male';
@@ -521,7 +565,7 @@ export default function PedigreeTree() {
                         {/* Clinical Symbol */}
                         <div className="relative mb-1">
                           <svg width="50" height="50" className="drop-shadow-xs">
-                            {/* Main Outline (Square = Male, Circle = Female) */}
+                            {/* Male Square or Female Circle */}
                             {isMale ? (
                               <rect
                                 x="5"
@@ -539,7 +583,7 @@ export default function PedigreeTree() {
                               />
                             )}
 
-                            {/* Fresh Red Filled Triangle for Diagnosed Conditions */}
+                            {/* Red Triangle Diagnosis Indicator */}
                             {hasDiagnoses && (
                               <polygon
                                 points="25,12 13,35 37,35"
@@ -547,18 +591,18 @@ export default function PedigreeTree() {
                               />
                             )}
 
-                            {/* Deceased Slash */}
+                            {/* Deceased Slash Line */}
                             {isDeceased && (
                               <line x1="2" y1="48" x2="48" y2="2" className="stroke-slate-900 stroke-[2.5]" />
                             )}
                           </svg>
                         </div>
 
-                        {/* Person Name & Relation */}
+                        {/* Name & Relation Label */}
                         <span className="text-xs font-bold text-slate-900 text-center leading-tight">{m.alias}</span>
                         <span className="text-[10px] text-slate-500 font-medium">{m.relation}</span>
 
-                        {/* Stacked Diseases List with Onset Age */}
+                        {/* Stacked Disease Conditions */}
                         {hasDiagnoses && (
                           <div className="mt-1 space-y-1 w-full text-center">
                             {m.diagnoses.map((d, dIdx) => (
