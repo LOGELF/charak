@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Shield, BookOpen, Activity, GitFork, FileText, Lock, EyeOff, HardDrive } from 'lucide-react';
 import OrganGuides from './components/OrganGuides.jsx';
 import SymptomTracker from './components/SymptomTracker.jsx';
+import PedigreeTree from './components/PedigreeTree.jsx';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('landing');
@@ -144,21 +145,24 @@ export default function App() {
           </div>
         )}
 
-        {/* Render Self-Exam Organ Guides */}
+{/* Render Self-Exam Organ Guides */}
 {activeTab === 'guides' && <OrganGuides />}
 
 {/* Render Local Symptom Tracker */}
 {activeTab === 'tracker' && <SymptomTracker />}
 
+{/* Render Family Medical Pedigree Tree */}
+{activeTab === 'pedigree' && <PedigreeTree />}
+
 {/* Modules Coming Next */}
-{activeTab !== 'landing' && activeTab !== 'guides' && activeTab !== 'tracker' && (
+{activeTab !== 'landing' && activeTab !== 'guides' && activeTab !== 'tracker' && activeTab !== 'pedigree' && (
   <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm">
     <div className="inline-flex p-4 rounded-full bg-sky-50 text-sky-600">
       <Shield className="w-8 h-8" />
     </div>
     <h3 className="text-2xl font-bold text-slate-900 capitalize">{activeTab} Module Ready For Next Step</h3>
     <p className="text-slate-600 max-w-md mx-auto">
-      Phase 3 active! Paste Phase 4 (Family Medical Pedigree Tree Engine) next.
+      Phase 4 active! Paste Phase 5 (jsPDF Doctor Summary Export & Anonymized AI Prompt Bridge) next.
     </p>
   </div>
 )}
