@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../db/db.js';
-import { GitFork, UserPlus, Trash2, ShieldCheck, Plus, ZoomIn, ZoomOut, RotateCcw, Link, Edit3, Check, Wand2, MousePointer } from 'lucide-react';
+import { GitFork, UserPlus, Trash2, ShieldCheck, Plus, ZoomIn, ZoomOut, RotateCcw, Link, Edit3, Check, Wand2, MousePointer, AlertCircle } from 'lucide-react';
 
 export default function PedigreeTree() {
   const [members, setMembers] = useState([]);
@@ -24,7 +24,7 @@ export default function PedigreeTree() {
   const [editFatherId, setEditFatherId] = useState('');
   const [editMotherId, setEditMotherId] = useState('');
 
-  // Interactive Docking Line Dragging State
+  // Interactive Line Dragging State
   const [activeDrag, setActiveDrag] = useState(null); // { sourceId, dockType, startX, startY, currentX, currentY }
   const [hoveredDock, setHoveredDock] = useState(null); // { targetId, dockType }
   const canvasRef = useRef(null);
@@ -42,10 +42,10 @@ export default function PedigreeTree() {
     loadFamily();
   }, []);
 
-  // Quick Template Generator matching the notebook diagram
+  // Quick Template Generator matching standard 3-Gen pedigree
   const generateStandardTemplate = async () => {
     if (members.length > 0) {
-      if (!window.confirm("This will reset current members to the standard 3-Gen notebook structure. Continue?")) {
+      if (!window.confirm("This will reset current members to the standard 3-Gen pedigree structure. Continue?")) {
         return;
       }
     }
@@ -154,12 +154,6 @@ export default function PedigreeTree() {
       y = 60 + tier * 180;
     }
 
-    // Node Dimensions: Width=50, Height=50
-    // Port Coordinates:
-    // Top: (x+25, y)
-    // Bottom: (x+25, y+50)
-    // Left: (x, y+25)
-    // Right: (x+50, y+25)
     nodeMap[m.id] = {
       ...m,
       x,
@@ -173,26 +167,32 @@ export default function PedigreeTree() {
     };
   });
 
-  // Calculate Auto Connections
+  // Calculate Unique Connections (Prevent duplicate lines)
   const connections = [];
+  const processedKeys = new Set();
+
   members.forEach(child => {
     if (child.fatherId || child.motherId) {
-      const childPos = nodeMap[child.id];
-      const fatherPos = child.fatherId ? nodeMap[child.fatherId] : null;
-      const motherPos = child.motherId ? nodeMap[child.motherId] : null;
+      const key = `${child.fatherId || 'x'}-${child.motherId || 'x'}-${child.id}`;
+      if (!processedKeys.has(key)) {
+        processedKeys.add(key);
+        const childPos = nodeMap[child.id];
+        const fatherPos = child.fatherId ? nodeMap[child.fatherId] : null;
+        const motherPos = child.motherId ? nodeMap[child.motherId] : null;
 
-      if (childPos) {
-        connections.push({
-          childId: child.id,
-          childPos,
-          fatherPos,
-          motherPos
-        });
+        if (childPos) {
+          connections.push({
+            childId: child.id,
+            childPos,
+            fatherPos,
+            motherPos
+          });
+        }
       }
     }
   });
 
-  // --- INTERACTIVE DOCKING LINE DRAGGING LOGIC ---
+  // --- INTERACTIVE DRAGGING & STRICT VALIDATION LOGIC ---
   const getCanvasCoordinates = (e) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
@@ -221,9 +221,8 @@ export default function PedigreeTree() {
     if (!activeDrag) return;
     const { x, y } = getCanvasCoordinates(e);
 
-    // Check for snapping proximity to any target dock
     let closestTarget = null;
-    let minDistance = 30; // Snap radius in px
+    let minDistance = 35; // Magnet snap distance
 
     Object.values(nodeMap).forEach(node => {
       if (node.id === activeDrag.sourceId) return;
@@ -252,13 +251,55 @@ export default function PedigreeTree() {
       const target = nodeMap[hoveredDock.targetId];
 
       if (source && target) {
-        // Auto Connect Logic:
-        // If dropping on a target: if source is Male/Female and Target is child, connect as Parent!
-        if (source.gender === 'Male' && target.id !== source.id) {
+        // --- STRICT PEDIGREE VALIDATION ENGINE ---
+        
+        // Rule 1: No Self-Connections
+        if (source.id === target.id) {
+          setActiveDrag(null);
+          setHoveredDock(null);
+          return;
+        }
+
+        // Rule 2: Prevent Duplicate Line connections
+        if (target.fatherId === source.id || target.motherId === source.id) {
+          alert(`Connection already exists! ${source.alias} is already connected as a parent of ${target.alias}.`);
+          setActiveDrag(null);
+          setHoveredDock(null);
+          return;
+        }
+
+        // Rule 3: Generation Tier Checks (Parent must be exactly 1 tier above child)
+        const sourceTier = source.generationTier ?? 2;
+        const targetTier = target.generationTier ?? 2;
+
+        if (sourceTier === targetTier) {
+          alert(`Invalid relationship line! ${source.alias} and ${target.alias} are in the same generation tier.`);
+          setActiveDrag(null);
+          setHoveredDock(null);
+          return;
+        }
+
+        if (sourceTier > targetTier) {
+          alert(`Invalid pedigree direction! A child cannot be placed above their parent.`);
+          setActiveDrag(null);
+          setHoveredDock(null);
+          return;
+        }
+
+        if (targetTier - sourceTier > 1) {
+          alert(`Invalid jump! You cannot connect ${source.alias} directly to ${target.alias} across multiple generation tiers.`);
+          setActiveDrag(null);
+          setHoveredDock(null);
+          return;
+        }
+
+        // Rule 4: Gender Role Assignment
+        if (source.gender === 'Male') {
           await db.familyMembers.update(target.id, { fatherId: source.id });
-        } else if (source.gender === 'Female' && target.id !== source.id) {
+        } else if (source.gender === 'Female') {
           await db.familyMembers.update(target.id, { motherId: source.id });
         }
+
         await loadFamily();
       }
     }
@@ -276,10 +317,10 @@ export default function PedigreeTree() {
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="inline-flex items-center space-x-1 text-xs font-semibold bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full mb-1">
-            <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Interactive Docking Lines & Auto-Connect
+            <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Validated Pedigree Engine
           </span>
           <h2 className="text-2xl font-extrabold text-slate-900">Clinical Pedigree Editor</h2>
-          <p className="text-slate-600 text-sm mt-0.5">Drag lines between docking ports to auto-connect relationships visually.</p>
+          <p className="text-slate-600 text-sm mt-0.5">Drag lines between docking ports with strict genetic tree validation.</p>
         </div>
 
         <button
@@ -502,7 +543,7 @@ export default function PedigreeTree() {
           )}
         </div>
 
-        {/* Right Canvas: Interactive Docking Canvas & Zoom */}
+        {/* Right Canvas */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             {/* Controls Bar */}
@@ -533,10 +574,9 @@ export default function PedigreeTree() {
                 </button>
               </div>
 
-              {/* Legend & Instructions */}
               <div className="flex items-center space-x-3 text-[11px] text-slate-600 font-medium">
                 <span className="flex items-center text-purple-700 bg-purple-50 px-2 py-1 rounded-md border border-purple-200">
-                  <MousePointer className="w-3 h-3 mr-1" /> Drag docking dots to connect
+                  <MousePointer className="w-3 h-3 mr-1" /> Drag lines between generations
                 </span>
               </div>
             </div>
@@ -571,9 +611,8 @@ export default function PedigreeTree() {
                   }}
                   className="relative"
                 >
-                  {/* SVG Layer for Auto Connections & Live Stretchable Line */}
+                  {/* SVG Layer */}
                   <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                    {/* Render Auto Pedigree Connections */}
                     {connections.map((conn, idx) => {
                       const { childPos, fatherPos, motherPos } = conn;
                       const childX = childPos.ports.top.x;
@@ -613,7 +652,7 @@ export default function PedigreeTree() {
                       return null;
                     })}
 
-                    {/* Render Dynamic Live Stretchable Line while Dragging */}
+                    {/* Active Drag Line */}
                     {activeDrag && (
                       <g>
                         <line
@@ -621,7 +660,7 @@ export default function PedigreeTree() {
                           y1={activeDrag.startY}
                           x2={activeDrag.currentX}
                           y2={activeDrag.currentY}
-                          className="stroke-purple-600 stroke-[3] stroke-dasharray-[4]"
+                          className="stroke-purple-600 stroke-[3]"
                           strokeDasharray="5,5"
                         />
                         <circle
@@ -634,7 +673,7 @@ export default function PedigreeTree() {
                     )}
                   </svg>
 
-                  {/* Render Relative Nodes with Magnetic Docking Ports */}
+                  {/* Render Nodes */}
                   {Object.values(nodeMap).map((m) => {
                     const hasDiagnoses = m.diagnoses && m.diagnoses.length > 0;
                     const isMale = m.gender === 'Male';
@@ -666,7 +705,6 @@ export default function PedigreeTree() {
                               />
                             )}
 
-                            {/* Red Triangle Indicator */}
                             {hasDiagnoses && (
                               <polygon
                                 points="25,12 13,35 37,35"
@@ -674,13 +712,12 @@ export default function PedigreeTree() {
                               />
                             )}
 
-                            {/* Deceased Line */}
                             {isDeceased && (
                               <line x1="2" y1="48" x2="48" y2="2" className="stroke-slate-900 stroke-[2.5]" />
                             )}
                           </svg>
 
-                          {/* 4 Docking Ports (Top, Bottom, Left, Right) */}
+                          {/* 4 Docking Ports */}
                           {['top', 'bottom', 'left', 'right'].map((dockKey) => {
                             const isHovered = hoveredDock?.targetId === m.id && hoveredDock?.dockType === dockKey;
                             
@@ -710,7 +747,6 @@ export default function PedigreeTree() {
                           <span className="text-xs font-bold text-slate-900 block leading-tight">{m.alias}</span>
                           <span className="text-[10px] text-slate-500 font-medium block">{m.relation}</span>
 
-                          {/* Stacked Diagnoses */}
                           {hasDiagnoses && (
                             <div className="mt-1 space-y-1 w-full text-center">
                               {m.diagnoses.map((d, dIdx) => (
