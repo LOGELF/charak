@@ -59,12 +59,12 @@ export default function PedigreeTree() {
 
     await db.familyMembers.clear();
 
-    const mGf = await db.familyMembers.add({ alias: 'Maternal GF', relation: 'Maternal Grandfather', gender: 'Male', status: 'Living', age: 78, generationTier: 0, diagnoses: [] });
-    const mGm = await db.familyMembers.add({ alias: 'Maternal GM', relation: 'Maternal Grandmother', gender: 'Female', status: 'Deceased', age: 74, generationTier: 0, diagnoses: [{ condition: 'Ovarian Cancer', ageOfOnset: 62 }] });
-    const pGf = await db.familyMembers.add({ alias: 'Paternal GF', relation: 'Paternal Grandfather', gender: 'Male', status: 'Deceased', age: 80, generationTier: 0, diagnoses: [{ condition: 'Heart Disease', ageOfOnset: 68 }] });
+    const mGf = await db.familyMembers.add({ alias: 'Maternal GF', relation: 'Maternal Grandfather', gender: 'Male' });
+    const mGm = await db.familyMembers.add({ alias: 'Maternal GM', relation: 'Maternal Grandmother', gender: 'Female', status: 'Living', age: 74, generationTier: 0, diagnoses: [{ condition: 'Ovarian Cancer', ageOfOnset: 62 }] });
+    const pGf = await db.familyMembers.add({ alias: 'Paternal GF', relation: 'Paternal Grandfather', gender: 'Male', status: 'Living', age: 80, generationTier: 0, diagnoses: [{ condition: 'Heart Disease', ageOfOnset: 68 }] });
     const pGm = await db.familyMembers.add({ alias: 'Paternal GM', relation: 'Paternal Grandmother', gender: 'Female', status: 'Living', age: 82, generationTier: 0, diagnoses: [] });
 
-    const mother = await db.familyMembers.add({ alias: 'Mother', relation: 'Mother', gender: 'Female', status: 'Living', age: 52, generationTier: 1, fatherId: mGf, motherId: mGm, diagnoses: [{ condition: 'Breast Cancer', ageOfOnset: 45 }] });
+    const mother = await db.familyMembers.add({ alias: 'Mother', relation: 'Mother', gender: 'Female', status: 'Living', age: 52, generationTier: 1, fatherId: mGf, motherId: mGm, diagnoses: [{ condition: 'Anaemia', ageOfOnset: 45 }] });
     const father = await db.familyMembers.add({ alias: 'Father', relation: 'Father', gender: 'Male', status: 'Living', age: 55, generationTier: 1, fatherId: pGf, motherId: pGm, diagnoses: [] });
 
     await db.familyMembers.add({ alias: 'Self', relation: 'Self', gender: 'Male', status: 'Living', age: 26, generationTier: 2, fatherId: father, motherId: mother, diagnoses: [] });
