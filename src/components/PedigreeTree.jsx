@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../db/db.js';
-import { GitFork, UserPlus, Trash2, ShieldCheck, Plus, ZoomIn, ZoomOut, RotateCcw, Link, Edit3, Check, Wand2, MousePointer, AlertCircle } from 'lucide-react';
+import { GitFork, UserPlus, Trash2, ShieldCheck, Plus, ZoomIn, ZoomOut, RotateCcw, Link, Edit3, Check, Wand2, MousePointer, Activity, X } from 'lucide-react';
 
 export default function PedigreeTree() {
   const [members, setMembers] = useState([]);
@@ -8,13 +8,20 @@ export default function PedigreeTree() {
   const [relation, setRelation] = useState('Mother');
   const [gender, setGender] = useState('Female');
   const [status, setStatus] = useState('Living');
+  const [age, setAge] = useState('');
   const [fatherId, setFatherId] = useState('');
   const [motherId, setMotherId] = useState('');
   
+  // New Member Diagnoses Form State
   const [conditionInput, setConditionInput] = useState('');
   const [ageInput, setAgeInput] = useState('');
-  const [diagnoses, setDiagnoses] = useState([]);
+  const [newMemberDiagnoses, setNewMemberDiagnoses] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Per-Member Disease Addition State
+  const [addingDiseaseMemberId, setAddingDiseaseMemberId] = useState(null);
+  const [memberConditionInput, setMemberConditionInput] = useState('');
+  const [memberAgeInput, setMemberAgeInput] = useState('');
 
   // Zoom State
   const [zoomLevel, setZoomLevel] = useState(1.0);
@@ -25,8 +32,8 @@ export default function PedigreeTree() {
   const [editMotherId, setEditMotherId] = useState('');
 
   // Interactive Line Dragging State
-  const [activeDrag, setActiveDrag] = useState(null); // { sourceId, dockType, startX, startY, currentX, currentY }
-  const [hoveredDock, setHoveredDock] = useState(null); // { targetId, dockType }
+  const [activeDrag, setActiveDrag] = useState(null);
+  const [hoveredDock, setHoveredDock] = useState(null);
   const canvasRef = useRef(null);
 
   const loadFamily = async () => {
@@ -42,7 +49,7 @@ export default function PedigreeTree() {
     loadFamily();
   }, []);
 
-  // Quick Template Generator matching standard 3-Gen pedigree
+  // Standard 3-Gen Pedigree Template
   const generateStandardTemplate = async () => {
     if (members.length > 0) {
       if (!window.confirm("This will reset current members to the standard 3-Gen pedigree structure. Continue?")) {
@@ -52,22 +59,23 @@ export default function PedigreeTree() {
 
     await db.familyMembers.clear();
 
-    const mGf = await db.familyMembers.add({ alias: 'Maternal GF', relation: 'Maternal Grandfather', gender: 'Male', status: 'Living', generationTier: 0, diagnoses: [] });
-    const mGm = await db.familyMembers.add({ alias: 'Maternal GM', relation: 'Maternal Grandmother', gender: 'Female', status: 'Living', generationTier: 0, diagnoses: [] });
-    const pGf = await db.familyMembers.add({ alias: 'Paternal GF', relation: 'Paternal Grandfather', gender: 'Male', status: 'Living', generationTier: 0, diagnoses: [] });
-    const pGm = await db.familyMembers.add({ alias: 'Paternal GM', relation: 'Paternal Grandmother', gender: 'Female', status: 'Living', generationTier: 0, diagnoses: [] });
+    const mGf = await db.familyMembers.add({ alias: 'Maternal GF', relation: 'Maternal Grandfather', gender: 'Male', status: 'Living', age: 78, generationTier: 0, diagnoses: [] });
+    const mGm = await db.familyMembers.add({ alias: 'Maternal GM', relation: 'Maternal Grandmother', gender: 'Female', status: 'Deceased', age: 74, generationTier: 0, diagnoses: [{ condition: 'Ovarian Cancer', ageOfOnset: 62 }] });
+    const pGf = await db.familyMembers.add({ alias: 'Paternal GF', relation: 'Paternal Grandfather', gender: 'Male', status: 'Deceased', age: 80, generationTier: 0, diagnoses: [{ condition: 'Heart Disease', ageOfOnset: 68 }] });
+    const pGm = await db.familyMembers.add({ alias: 'Paternal GM', relation: 'Paternal Grandmother', gender: 'Female', status: 'Living', age: 82, generationTier: 0, diagnoses: [] });
 
-    const mother = await db.familyMembers.add({ alias: 'Mother', relation: 'Mother', gender: 'Female', status: 'Living', generationTier: 1, fatherId: mGf, motherId: mGm, diagnoses: [] });
-    const father = await db.familyMembers.add({ alias: 'Father', relation: 'Father', gender: 'Male', status: 'Living', generationTier: 1, fatherId: pGf, motherId: pGm, diagnoses: [] });
+    const mother = await db.familyMembers.add({ alias: 'Mother', relation: 'Mother', gender: 'Female', status: 'Living', age: 52, generationTier: 1, fatherId: mGf, motherId: mGm, diagnoses: [{ condition: 'Breast Cancer', ageOfOnset: 45 }] });
+    const father = await db.familyMembers.add({ alias: 'Father', relation: 'Father', gender: 'Male', status: 'Living', age: 55, generationTier: 1, fatherId: pGf, motherId: pGm, diagnoses: [] });
 
-    await db.familyMembers.add({ alias: 'Self', relation: 'Self', gender: 'Male', status: 'Living', generationTier: 2, fatherId: father, motherId: mother, diagnoses: [] });
+    await db.familyMembers.add({ alias: 'Self', relation: 'Self', gender: 'Male', status: 'Living', age: 26, generationTier: 2, fatherId: father, motherId: mother, diagnoses: [] });
 
     await loadFamily();
   };
 
-  const handleAddCondition = () => {
+  // Add condition during NEW relative creation
+  const handleAddNewMemberCondition = () => {
     if (!conditionInput.trim()) return;
-    setDiagnoses(prev => [
+    setNewMemberDiagnoses(prev => [
       ...prev, 
       { condition: conditionInput.trim(), ageOfOnset: ageInput ? parseInt(ageInput, 10) : null }
     ]);
@@ -75,8 +83,35 @@ export default function PedigreeTree() {
     setAgeInput('');
   };
 
-  const handleRemoveCondition = (index) => {
-    setDiagnoses(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveNewMemberCondition = (index) => {
+    setNewMemberDiagnoses(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Add condition directly to an EXISTING relative
+  const handleAddConditionToMember = async (memberId) => {
+    if (!memberConditionInput.trim()) return;
+    const targetMember = members.find(m => m.id === memberId);
+    if (!targetMember) return;
+
+    const updatedDiagnoses = [
+      ...(targetMember.diagnoses || []),
+      { condition: memberConditionInput.trim(), ageOfOnset: memberAgeInput ? parseInt(memberAgeInput, 10) : null }
+    ];
+
+    await db.familyMembers.update(memberId, { diagnoses: updatedDiagnoses });
+    setMemberConditionInput('');
+    setMemberAgeInput('');
+    setAddingDiseaseMemberId(null);
+    await loadFamily();
+  };
+
+  const handleRemoveMemberCondition = async (memberId, diagIndex) => {
+    const targetMember = members.find(m => m.id === memberId);
+    if (!targetMember) return;
+
+    const updatedDiagnoses = (targetMember.diagnoses || []).filter((_, i) => i !== diagIndex);
+    await db.familyMembers.update(memberId, { diagnoses: updatedDiagnoses });
+    await loadFamily();
   };
 
   const handleAddMember = async (e) => {
@@ -94,16 +129,18 @@ export default function PedigreeTree() {
         relation,
         gender,
         status,
+        age: age ? parseInt(age, 10) : null,
         generationTier,
         fatherId: fatherId ? parseInt(fatherId, 10) : null,
         motherId: motherId ? parseInt(motherId, 10) : null,
-        diagnoses
+        diagnoses: newMemberDiagnoses
       });
 
       setAlias('');
+      setAge('');
       setFatherId('');
       setMotherId('');
-      setDiagnoses([]);
+      setNewMemberDiagnoses([]);
       setConditionInput('');
       setAgeInput('');
       await loadFamily();
@@ -132,6 +169,80 @@ export default function PedigreeTree() {
       await db.familyMembers.delete(id);
       await loadFamily();
     }
+  };
+
+  // --- LINEAGE SIDE CATEGORIZATION & VALIDATION ---
+  const getLineageSide = (member) => {
+    const rel = member.relation || '';
+    if (rel.startsWith('Maternal') || rel === 'Mother') return 'maternal';
+    if (rel.startsWith('Paternal') || rel === 'Father') return 'paternal';
+    return 'central';
+  };
+
+  const validateRelationshipLine = (source, target) => {
+    if (source.id === target.id) {
+      return { valid: false, reason: "Cannot connect a member to themselves." };
+    }
+
+    const sourceTier = source.generationTier ?? 2;
+    const targetTier = target.generationTier ?? 2;
+    const sourceSide = getLineageSide(source);
+    const targetSide = getLineageSide(target);
+
+    // Rule 1: Same Generation Pairing (Spouse / Mating Connection)
+    if (sourceTier === targetTier) {
+      if (source.gender === target.gender) {
+        return { valid: false, reason: "Coupling connections require opposite genders." };
+      }
+      
+      // Valid Mother + Father pairing
+      if ((source.relation === 'Mother' && target.relation === 'Father') ||
+          (source.relation === 'Father' && target.relation === 'Mother')) {
+        return { valid: true };
+      }
+
+      // Valid Maternal Grandparents
+      if (sourceSide === 'maternal' && targetSide === 'maternal') {
+        return { valid: true };
+      }
+
+      // Valid Paternal Grandparents
+      if (sourceSide === 'paternal' && targetSide === 'paternal') {
+        return { valid: true };
+      }
+
+      // Invalid cross-lineage pairings (e.g., Mother to Paternal Uncle, Maternal GF to Paternal GM)
+      return { valid: false, reason: `Invalid pairing: Cannot connect ${source.relation} with ${target.relation}.` };
+    }
+
+    // Rule 2: Parent-to-Child (Tier N -> Tier N+1)
+    if (targetTier - sourceTier === 1) {
+      // Maternal Grandparents can only connect to Maternal side (Mother, Maternal Aunt/Uncle)
+      if (sourceSide === 'maternal' && sourceTier === 0) {
+        if (targetSide !== 'maternal') {
+          return { valid: false, reason: "Maternal Grandparents can only connect to Maternal offspring (Mother, Maternal Aunt/Uncle)." };
+        }
+      }
+
+      // Paternal Grandparents can only connect to Paternal side (Father, Paternal Aunt/Uncle)
+      if (sourceSide === 'paternal' && sourceTier === 0) {
+        if (targetSide !== 'paternal') {
+          return { valid: false, reason: "Paternal Grandparents can only connect to Paternal offspring (Father, Paternal Aunt/Uncle)." };
+        }
+      }
+
+      return { valid: true };
+    }
+
+    if (sourceTier > targetTier) {
+      return { valid: false, reason: "Parents must be placed in a generation tier above the child." };
+    }
+
+    if (targetTier - sourceTier > 1) {
+      return { valid: false, reason: "Cannot skip generations in a single direct connection line." };
+    }
+
+    return { valid: false, reason: "Invalid pedigree relationship." };
   };
 
   // --- POSITIONING ENGINE ---
@@ -167,7 +278,7 @@ export default function PedigreeTree() {
     };
   });
 
-  // Calculate Unique Connections (Prevent duplicate lines)
+  // Calculate Unique Parent-Child Connections (Prevents Duplicate Lines)
   const connections = [];
   const processedKeys = new Set();
 
@@ -192,13 +303,14 @@ export default function PedigreeTree() {
     }
   });
 
-  // --- INTERACTIVE DRAGGING & STRICT VALIDATION LOGIC ---
+  // Dragging Handlers
   const getCanvasCoordinates = (e) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / zoomLevel;
-    const y = (e.clientY - rect.top) / zoomLevel;
-    return { x, y };
+    return {
+      x: (e.clientX - rect.left) / zoomLevel,
+      y: (e.clientY - rect.top) / zoomLevel
+    };
   };
 
   const handleStartDrag = (memberId, dockType, e) => {
@@ -222,7 +334,7 @@ export default function PedigreeTree() {
     const { x, y } = getCanvasCoordinates(e);
 
     let closestTarget = null;
-    let minDistance = 35; // Magnet snap distance
+    let minDistance = 35;
 
     Object.values(nodeMap).forEach(node => {
       if (node.id === activeDrag.sourceId) return;
@@ -251,52 +363,28 @@ export default function PedigreeTree() {
       const target = nodeMap[hoveredDock.targetId];
 
       if (source && target) {
-        // --- STRICT PEDIGREE VALIDATION ENGINE ---
-        
-        // Rule 1: No Self-Connections
-        if (source.id === target.id) {
+        // Validate relationship line logic
+        const validation = validateRelationshipLine(source, target);
+
+        if (!validation.valid) {
+          alert(`🚫 ${validation.reason}`);
           setActiveDrag(null);
           setHoveredDock(null);
           return;
         }
 
-        // Rule 2: Prevent Duplicate Line connections
+        // Prevent Duplicate Connections
         if (target.fatherId === source.id || target.motherId === source.id) {
-          alert(`Connection already exists! ${source.alias} is already connected as a parent of ${target.alias}.`);
+          alert(`Connection already exists between ${source.alias} and ${target.alias}.`);
           setActiveDrag(null);
           setHoveredDock(null);
           return;
         }
 
-        // Rule 3: Generation Tier Checks (Parent must be exactly 1 tier above child)
-        const sourceTier = source.generationTier ?? 2;
-        const targetTier = target.generationTier ?? 2;
-
-        if (sourceTier === targetTier) {
-          alert(`Invalid relationship line! ${source.alias} and ${target.alias} are in the same generation tier.`);
-          setActiveDrag(null);
-          setHoveredDock(null);
-          return;
-        }
-
-        if (sourceTier > targetTier) {
-          alert(`Invalid pedigree direction! A child cannot be placed above their parent.`);
-          setActiveDrag(null);
-          setHoveredDock(null);
-          return;
-        }
-
-        if (targetTier - sourceTier > 1) {
-          alert(`Invalid jump! You cannot connect ${source.alias} directly to ${target.alias} across multiple generation tiers.`);
-          setActiveDrag(null);
-          setHoveredDock(null);
-          return;
-        }
-
-        // Rule 4: Gender Role Assignment
-        if (source.gender === 'Male') {
+        // Apply Parent Relationship
+        if (source.gender === 'Male' && source.generationTier < target.generationTier) {
           await db.familyMembers.update(target.id, { fatherId: source.id });
-        } else if (source.gender === 'Female') {
+        } else if (source.gender === 'Female' && source.generationTier < target.generationTier) {
           await db.familyMembers.update(target.id, { motherId: source.id });
         }
 
@@ -320,7 +408,7 @@ export default function PedigreeTree() {
             <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Validated Pedigree Engine
           </span>
           <h2 className="text-2xl font-extrabold text-slate-900">Clinical Pedigree Editor</h2>
-          <p className="text-slate-600 text-sm mt-0.5">Drag lines between docking ports with strict genetic tree validation.</p>
+          <p className="text-slate-600 text-sm mt-0.5">Drag lines between docking ports with strict genetic lineage rules.</p>
         </div>
 
         <button
@@ -328,12 +416,12 @@ export default function PedigreeTree() {
           className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all shrink-0"
         >
           <Wand2 className="w-4 h-4" />
-          <span>Auto-Build Notebook Template</span>
+          <span>Auto-Build Standard Template</span>
         </button>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* Left Column: Form & Links Editor */}
+        {/* Left Column: Form & Relative Manager */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-lg font-bold text-slate-900 flex items-center">
@@ -374,15 +462,28 @@ export default function PedigreeTree() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Alias / Name</label>
-                <input
-                  type="text"
-                  value={alias}
-                  onChange={(e) => setAlias(e.target.value)}
-                  placeholder="e.g., Mother or M.S."
-                  className="w-full text-sm p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Alias / Name</label>
+                  <input
+                    type="text"
+                    value={alias}
+                    onChange={(e) => setAlias(e.target.value)}
+                    placeholder="e.g., Jane Doe"
+                    className="w-full text-sm p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Age</label>
+                  <input
+                    type="number"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="e.g., 54"
+                    className="w-full text-sm p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-purple-500 bg-slate-50"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -411,9 +512,9 @@ export default function PedigreeTree() {
                 </div>
               </div>
 
-              {/* Diagnoses List */}
+              {/* Diseases / Conditions for New Member */}
               <div className="border-t border-slate-200 pt-3 space-y-2">
-                <label className="block text-xs font-bold text-slate-700">Diagnoses & Diseases</label>
+                <label className="block text-xs font-bold text-slate-700">Add Disease during Entry</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -426,26 +527,26 @@ export default function PedigreeTree() {
                     type="number"
                     value={ageInput}
                     onChange={(e) => setAgeInput(e.target.value)}
-                    placeholder="Age"
+                    placeholder="Onset Age"
                     className="w-1/3 text-xs p-2 rounded-lg border border-slate-300 bg-slate-50"
                   />
                 </div>
 
                 <button
                   type="button"
-                  onClick={handleAddCondition}
-                  className="w-full flex items-center justify-center space-x-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 py-1.5 rounded-lg border border-slate-300"
+                  onClick={handleAddNewMemberCondition}
+                  className="w-full flex items-center justify-center space-x-1 text-xs font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 py-1.5 rounded-lg border border-purple-200"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add Disease to List</span>
+                  <span>Add Disease to Entry</span>
                 </button>
 
-                {diagnoses.length > 0 && (
+                {newMemberDiagnoses.length > 0 && (
                   <div className="space-y-1 pt-1">
-                    {diagnoses.map((d, idx) => (
+                    {newMemberDiagnoses.map((d, idx) => (
                       <div key={idx} className="flex justify-between items-center text-xs bg-rose-50 border border-rose-200 text-rose-800 px-2 py-1 rounded-md">
-                        <span>{d.condition} {d.ageOfOnset ? `(Age ${d.ageOfOnset})` : ''}</span>
-                        <button type="button" onClick={() => handleRemoveCondition(idx)} className="text-rose-500 font-bold hover:text-rose-700">×</button>
+                        <span>{d.condition} {d.ageOfOnset ? `(@ Age ${d.ageOfOnset})` : ''}</span>
+                        <button type="button" onClick={() => handleRemoveNewMemberCondition(idx)} className="text-rose-500 font-bold hover:text-rose-700">×</button>
                       </div>
                     ))}
                   </div>
@@ -457,48 +558,113 @@ export default function PedigreeTree() {
                 disabled={isSubmitting}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow-md transition-all text-sm"
               >
-                Add Relative
+                Save Relative
               </button>
             </form>
           </div>
 
-          {/* Connection Manager */}
+          {/* Connection & Disease Manager List */}
           {members.length > 0 && (
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <h3 className="text-sm font-bold text-slate-900 flex items-center">
-                <Link className="w-4 h-4 text-purple-600 mr-2" /> Connection Manager
+                <Link className="w-4 h-4 text-purple-600 mr-2" /> Relative Manager
               </h3>
 
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                 {members.map((m) => {
                   const father = members.find(f => f.id === m.fatherId);
                   const mother = members.find(mo => mo.id === m.motherId);
                   const isEditing = editingMemberId === m.id;
+                  const isAddingDisease = addingDiseaseMemberId === m.id;
 
                   return (
                     <div key={m.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="font-bold text-slate-900">{m.alias} ({m.relation})</span>
-                        {!isEditing ? (
+                        <span className="font-bold text-slate-900">{m.relation} - {m.alias} {m.age ? `(Age ${m.age})` : ''}</span>
+                        <div className="flex space-x-2">
                           <button
-                            onClick={() => {
-                              setEditingMemberId(m.id);
-                              setEditFatherId(m.fatherId || '');
-                              setEditMotherId(m.motherId || '');
-                            }}
-                            className="text-purple-600 hover:text-purple-800 font-semibold flex items-center space-x-1"
+                            onClick={() => setAddingDiseaseMemberId(isAddingDisease ? null : m.id)}
+                            className="text-rose-600 hover:text-rose-800 font-semibold flex items-center space-x-1 text-[11px]"
+                            title="Add Disease to Person"
                           >
-                            <Edit3 className="w-3 h-3 mr-0.5" /> Edit
+                            <Activity className="w-3 h-3" />
+                            <span>+ Disease</span>
                           </button>
-                        ) : (
-                          <button
-                            onClick={() => handleSaveRelationships(m.id)}
-                            className="text-emerald-600 hover:text-emerald-800 font-bold flex items-center space-x-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
-                          >
-                            <Check className="w-3 h-3 mr-0.5" /> Save
-                          </button>
-                        )}
+                          {!isEditing ? (
+                            <button
+                              onClick={() => {
+                                setEditingMemberId(m.id);
+                                setEditFatherId(m.fatherId || '');
+                                setEditMotherId(m.motherId || '');
+                              }}
+                              className="text-purple-600 hover:text-purple-800 font-semibold flex items-center space-x-1 text-[11px]"
+                            >
+                              <Edit3 className="w-3 h-3" /> Edit
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleSaveRelationships(m.id)}
+                              className="text-emerald-600 hover:text-emerald-800 font-bold flex items-center space-x-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px]"
+                            >
+                              <Check className="w-3 h-3" /> Save
+                            </button>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Inline Disease Adder for Existing Relative */}
+                      {isAddingDisease && (
+                        <div className="bg-rose-50/80 p-2 rounded-lg border border-rose-200 space-y-2">
+                          <div className="text-[11px] font-bold text-rose-800">Add Disease to {m.alias}</div>
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              placeholder="Disease Name"
+                              value={memberConditionInput}
+                              onChange={(e) => setMemberConditionInput(e.target.value)}
+                              className="w-2/3 text-[11px] p-1.5 rounded border border-slate-300 bg-white"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Onset Age"
+                              value={memberAgeInput}
+                              onChange={(e) => setMemberAgeInput(e.target.value)}
+                              className="w-1/3 text-[11px] p-1.5 rounded border border-slate-300 bg-white"
+                            />
+                          </div>
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => setAddingDiseaseMemberId(null)}
+                              className="text-[10px] text-slate-500 hover:text-slate-700 px-2 py-1"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleAddConditionToMember(m.id)}
+                              className="text-[10px] bg-rose-600 text-white font-bold px-2 py-1 rounded shadow-xs"
+                            >
+                              Add Disease
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Display Diagnoses List under Relative */}
+                      {m.diagnoses && m.diagnoses.length > 0 && (
+                        <div className="space-y-1">
+                          {m.diagnoses.map((d, dIdx) => (
+                            <div key={dIdx} className="flex justify-between items-center text-[10px] bg-rose-100/70 text-rose-900 px-2 py-0.5 rounded">
+                              <span>• {d.condition} {d.ageOfOnset ? `(@ Age ${d.ageOfOnset})` : ''}</span>
+                              <button
+                                onClick={() => handleRemoveMemberCondition(m.id, dIdx)}
+                                className="text-rose-600 font-bold hover:text-rose-800 ml-1"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {!isEditing ? (
                         <div className="text-[11px] text-slate-500">
@@ -576,7 +742,7 @@ export default function PedigreeTree() {
 
               <div className="flex items-center space-x-3 text-[11px] text-slate-600 font-medium">
                 <span className="flex items-center text-purple-700 bg-purple-50 px-2 py-1 rounded-md border border-purple-200">
-                  <MousePointer className="w-3 h-3 mr-1" /> Drag lines between generations
+                  <MousePointer className="w-3 h-3 mr-1" /> Drag lines between ports
                 </span>
               </div>
             </div>
@@ -607,11 +773,11 @@ export default function PedigreeTree() {
                     transformOrigin: 'top left',
                     transition: activeDrag ? 'none' : 'transform 0.2s ease-out',
                     width: '880px',
-                    height: '580px'
+                    height: '620px'
                   }}
                   className="relative"
                 >
-                  {/* SVG Layer */}
+                  {/* SVG Layer for Pedigree Lines */}
                   <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
                     {connections.map((conn, idx) => {
                       const { childPos, fatherPos, motherPos } = conn;
@@ -673,7 +839,7 @@ export default function PedigreeTree() {
                     )}
                   </svg>
 
-                  {/* Render Nodes */}
+                  {/* Render Member Nodes */}
                   {Object.values(nodeMap).map((m) => {
                     const hasDiagnoses = m.diagnoses && m.diagnoses.length > 0;
                     const isMale = m.gender === 'Male';
@@ -683,9 +849,9 @@ export default function PedigreeTree() {
                       <div
                         key={m.id}
                         style={{ left: `${m.x}px`, top: `${m.y}px` }}
-                        className="absolute flex flex-col items-center group w-[50px] z-10"
+                        className="absolute flex flex-col items-center group w-[60px] z-10"
                       >
-                        {/* Clinical Symbol Box */}
+                        {/* Symbol Box */}
                         <div className="relative w-[50px] h-[50px]">
                           <svg width="50" height="50" className="drop-shadow-xs">
                             {isMale ? (
@@ -705,6 +871,7 @@ export default function PedigreeTree() {
                               />
                             )}
 
+                            {/* Red Clinical Disease Indicator */}
                             {hasDiagnoses && (
                               <polygon
                                 points="25,12 13,35 37,35"
@@ -712,12 +879,13 @@ export default function PedigreeTree() {
                               />
                             )}
 
+                            {/* Deceased Diagonal Slash */}
                             {isDeceased && (
                               <line x1="2" y1="48" x2="48" y2="2" className="stroke-slate-900 stroke-[2.5]" />
                             )}
                           </svg>
 
-                          {/* 4 Docking Ports */}
+                          {/* 4 Magnetic Docking Ports */}
                           {['top', 'bottom', 'left', 'right'].map((dockKey) => {
                             const isHovered = hoveredDock?.targetId === m.id && hoveredDock?.dockType === dockKey;
                             
@@ -742,17 +910,26 @@ export default function PedigreeTree() {
                           })}
                         </div>
 
-                        {/* Name & Role Labels */}
-                        <div className="mt-1 text-center min-w-[110px]">
-                          <span className="text-xs font-bold text-slate-900 block leading-tight">{m.alias}</span>
-                          <span className="text-[10px] text-slate-500 font-medium block">{m.relation}</span>
+                        {/* Orderly Pedigree Label Stack (1. Title -> 2. Name -> 3. Age/Status -> 4. Diseases) */}
+                        <div className="mt-1 text-center min-w-[120px]">
+                          {/* 1. Title / Role */}
+                          <span className="text-[11px] font-extrabold text-slate-900 block leading-tight">{m.relation}</span>
 
+                          {/* 2. Name / Alias */}
+                          <span className="text-[10px] text-purple-800 font-bold block">{m.alias}</span>
+
+                          {/* 3. Age & Status */}
+                          <span className="text-[9px] text-slate-500 font-medium block">
+                            {m.age ? `Age ${m.age}` : 'Age -'} • {isDeceased ? 'Deceased' : 'Living'}
+                          </span>
+
+                          {/* 4. Diseases & Onset Age List */}
                           {hasDiagnoses && (
-                            <div className="mt-1 space-y-1 w-full text-center">
+                            <div className="mt-1 space-y-0.5 w-full text-center">
                               {m.diagnoses.map((d, dIdx) => (
-                                <div key={dIdx} className="text-[10px] font-bold text-rose-800 bg-rose-50 px-1 py-0.5 rounded border border-rose-200 leading-tight">
-                                  <div>{d.condition}</div>
-                                  {d.ageOfOnset && <div className="text-[9px] text-rose-600 font-normal">Onset: Age {d.ageOfOnset}</div>}
+                                <div key={dIdx} className="text-[9px] font-bold text-rose-800 bg-rose-50 px-1 py-0.5 rounded border border-rose-200 leading-tight">
+                                  <span>{d.condition}</span>
+                                  {d.ageOfOnset && <span className="text-rose-600 font-normal block text-[8px]">Onset: Age {d.ageOfOnset}</span>}
                                 </div>
                               ))}
                             </div>
@@ -760,7 +937,7 @@ export default function PedigreeTree() {
 
                           <button
                             onClick={() => handleDelete(m.id)}
-                            className="mt-1 text-slate-300 hover:text-rose-600 p-1 opacity-0 group-hover:opacity-100 transition-all"
+                            className="mt-1 text-slate-300 hover:text-rose-600 p-0.5 opacity-0 group-hover:opacity-100 transition-all"
                             title="Delete Relative"
                           >
                             <Trash2 className="w-3.5 h-3.5 mx-auto" />
