@@ -145,20 +145,23 @@ export default function App() {
         )}
 
         {/* Render Self-Exam Organ Guides */}
-        {activeTab === 'guides' && <OrganGuides />}
+{activeTab === 'guides' && <OrganGuides />}
 
-        {/* Modules Coming Next */}
-        {activeTab !== 'landing' && activeTab !== 'guides' && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm">
-            <div className="inline-flex p-4 rounded-full bg-sky-50 text-sky-600">
-              <Shield className="w-8 h-8" />
-            </div>
-            <h3 className="text-2xl font-bold text-slate-900 capitalize">{activeTab} Module Ready For Next Step</h3>
-            <p className="text-slate-600 max-w-md mx-auto">
-              Phase 2 active! Paste Phase 3 (Dexie local symptom tracker) next to enable local database storage.
-            </p>
-          </div>
-        )}
+{/* Render Local Symptom Tracker */}
+{activeTab === 'tracker' && <SymptomTracker />}
+
+{/* Modules Coming Next */}
+{activeTab !== 'landing' && activeTab !== 'guides' && activeTab !== 'tracker' && (
+  <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm">
+    <div className="inline-flex p-4 rounded-full bg-sky-50 text-sky-600">
+      <Shield className="w-8 h-8" />
+    </div>
+    <h3 className="text-2xl font-bold text-slate-900 capitalize">{activeTab} Module Ready For Next Step</h3>
+    <p className="text-slate-600 max-w-md mx-auto">
+      Phase 3 active! Paste Phase 4 (Family Medical Pedigree Tree Engine) next.
+    </p>
+  </div>
+)}
       </main>
 
       {/* Mobile Bottom Navigation */}
