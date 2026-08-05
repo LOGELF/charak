@@ -3,16 +3,8 @@ import { Shield, BookOpen, Activity, GitFork, FileText, Lock, EyeOff, HardDrive 
 import OrganGuides from './components/OrganGuides.jsx';
 import SymptomTracker from './components/SymptomTracker.jsx';
 import PedigreeTree from './components/PedigreeTree.jsx';
-import React from 'react';
-import './App.css'; // <-- Add this line
+import './App.css';
 
-export default function App() {
-  return (
-    <div>
-      {/* Your app components */}
-    </div>
-  );
-}
 export default function App() {
   const [activeTab, setActiveTab] = useState('landing');
 
