@@ -1,0 +1,23 @@
+@media print {
+  /* Hide navigation, sidebars, and control buttons */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Show only the printable report container */
+  .print\:block, .print\:block * {
+    visibility: visible;
+  }
+
+  .print\:block {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Remove background shadows and margins for paper printing */
+  .shadow-lg, .shadow-md, .shadow-sm {
+    box-shadow: none !important;
+  }
+}
